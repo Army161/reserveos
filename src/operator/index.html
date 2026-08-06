@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ReserveOS — Operator console</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --fg: #16181d;
+        --muted: #5c6370;
+        --line: #dfe3e8;
+        --panel: #f7f8fa;
+        --good: #0f7b3f;
+        --warn: #9a6300;
+        --bad: #b3261e;
+        --accent: #1a4fb4;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #12141a;
+          --fg: #e9ecf1;
+          --muted: #98a0ad;
+          --line: #2a2f3a;
+          --panel: #1a1e26;
+          --good: #4ad07f;
+          --warn: #e0b341;
+          --bad: #ff6b5e;
+          --accent: #7aa2f7;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      header {
+        border-bottom: 1px solid var(--line);
+        padding: 0.85rem 1.5rem;
+        display: flex;
+        gap: 1.5rem;
+        align-items: center;
+        flex-wrap: wrap;
+        background: var(--panel);
+      }
+      .brand { font-weight: 700; letter-spacing: -0.01em; }
+      .brand small { font-weight: 400; color: var(--muted); margin-left: 0.5rem; }
+      #nav { display: flex; gap: 0.25rem; flex: 1; flex-wrap: wrap; }
+      .nav-link {
+        padding: 0.35rem 0.7rem;
+        border-radius: 6px;
+        color: var(--fg);
+        text-decoration: none;
+        font-size: 0.92rem;
+      }
+      .nav-link:hover { background: var(--bg); }
+      .nav-link.active { background: var(--accent); color: #fff; }
+      #identity {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        font-size: 0.85rem;
+        flex-wrap: wrap;
+      }
+      .sep { color: var(--muted); }
+      .roles {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 0.1rem 0.55rem;
+        color: var(--muted);
+      }
+      main { max-width: 68rem; margin: 0 auto; padding: 1.5rem; }
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--panel);
+        padding: 1.1rem 1.25rem;
+        margin-bottom: 1.25rem;
+      }
+      .panel h2 { margin: 0 0 0.85rem; font-size: 1.05rem; }
+      .panel h3 { margin: 1.4rem 0 0.6rem; font-size: 0.95rem; color: var(--muted); }
+      .metrics { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+      .metric {
+        flex: 1 1 11rem;
+        border: 1px solid var(--line);
+        border-left-width: 4px;
+        border-radius: 8px;
+        padding: 0.7rem 0.9rem;
+        background: var(--bg);
+      }
+      .metric-good { border-left-color: var(--good); }
+      .metric-warn { border-left-color: var(--warn); }
+      .metric-bad { border-left-color: var(--bad); }
+      .metric-neutral { border-left-color: var(--line); }
+      .metric-label {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+      }
+      .metric-value {
+        font-size: 1.35rem;
+        font-weight: 650;
+        font-variant-numeric: tabular-nums;
+        margin-top: 0.15rem;
+      }
+      table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+      th, td {
+        text-align: left;
+        padding: 0.45rem 0.6rem;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th { color: var(--muted); font-weight: 600; font-size: 0.82rem; }
+      td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+      code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.82rem; }
+      .badge {
+        display: inline-block;
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        padding: 0.12rem 0.5rem;
+        border-radius: 999px;
+        border: 1px solid currentColor;
+      }
+      .badge-good { color: var(--good); }
+      .badge-warn { color: var(--warn); }
+      .badge-bad { color: var(--bad); }
+      .badge-info { color: var(--accent); }
+      .badge-neutral { color: var(--muted); }
+      button, .button {
+        display: inline-block;
+        padding: 0.5rem 0.95rem;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--bg);
+        color: var(--fg);
+        font-size: 0.9rem;
+        cursor: pointer;
+        text-decoration: none;
+      }
+      button.primary, .button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+      button.danger { border-color: var(--bad); color: var(--bad); }
+      button:disabled { opacity: 0.45; cursor: not-allowed; }
+      button.link, .link {
+        background: none;
+        border: none;
+        color: var(--accent);
+        padding: 0;
+        cursor: pointer;
+        font-size: inherit;
+        text-decoration: none;
+      }
+      .actions { display: flex; gap: 0.6rem; margin-top: 1rem; flex-wrap: wrap; align-items: center; }
+      form { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+      input[type="text"], input[type="password"], input[type="date"] {
+        padding: 0.5rem 0.65rem;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--bg);
+        color: var(--fg);
+        font-size: 0.9rem;
+        min-width: 14rem;
+      }
+      .muted { color: var(--muted); }
+      .good { color: var(--good); }
+      .bad { color: var(--bad); }
+      .empty { font-style: italic; }
+      .facts { display: grid; grid-template-columns: max-content 1fr; gap: 0.3rem 1.2rem; margin: 0; }
+      .facts dt { color: var(--muted); font-size: 0.85rem; }
+      .facts dd { margin: 0; font-size: 0.9rem; word-break: break-all; }
+      .attestation {
+        margin: 0.9rem 0;
+        padding: 0.95rem 1.1rem;
+        border-left: 4px solid var(--accent);
+        background: var(--bg);
+        font-size: 0.98rem;
+        line-height: 1.6;
+      }
+      .ack { display: flex; gap: 0.55rem; align-items: flex-start; margin-top: 0.9rem; font-size: 0.92rem; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand">ReserveOS <small>operator console</small></div>
+      <div id="nav"></div>
+      <div id="identity"></div>
+    </header>
+    <main id="root"></main>
+    <script type="module" src="/operator/app.mjs"></script>
+  </body>
+</html>

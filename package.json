@@ -1,0 +1,40 @@
+{
+  "name": "reserveos",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Stablecoin reserve and compliance operations platform",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/copy-portal.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "contracts:build": "node scripts/build-contracts.mjs",
+    "demo": "tsc -p tsconfig.json && node dist/scripts/demo-report.js",
+    "db:migrate": "tsc -p tsconfig.json && node dist/scripts/migrate.js",
+    "db:up": "docker run -d --name reserveos-pg -e POSTGRES_PASSWORD=dev -e POSTGRES_DB=reserveos -p 55432:5432 postgres:16-alpine",
+    "db:down": "docker rm -f reserveos-pg",
+    "sftp:up": "docker run -d --name reserveos-sftp -p 2222:22 atmoz/sftp:alpine custodian:secret:::inbox",
+    "sftp:down": "docker rm -f reserveos-sftp",
+    "start": "node --env-file-if-exists=.env dist/src/main.js",
+    "seed:demo": "tsc -p tsconfig.json && node dist/scripts/seed-demo.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/pg": "^8.20.4",
+    "@types/ssh2-sftp-client": "^9.0.6",
+    "solc": "^0.8.28",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "@fastify/static": "^10.1.2",
+    "fastify": "^5.11.2",
+    "pg": "^8.22.0",
+    "ssh2-sftp-client": "^12.1.1",
+    "zod": "^3.24.1"
+  }
+}

@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ReserveOS — Verify a reserve report</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --fg: #16181d;
+        --muted: #5c6370;
+        --line: #dfe3e8;
+        --panel: #f7f8fa;
+        --pass: #0f7b3f;
+        --fail: #b3261e;
+        --accent: #1a4fb4;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #12141a;
+          --fg: #e9ecf1;
+          --muted: #98a0ad;
+          --line: #2a2f3a;
+          --panel: #1a1e26;
+          --pass: #4ad07f;
+          --fail: #ff6b5e;
+          --accent: #7aa2f7;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 2rem 1.25rem 4rem;
+        background: var(--bg);
+        color: var(--fg);
+        font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      main { max-width: 56rem; margin: 0 auto; }
+      h1 { font-size: 1.6rem; margin: 0 0 0.35rem; letter-spacing: -0.01em; }
+      .lede { color: var(--muted); margin: 0 0 1.75rem; max-width: 46rem; }
+      form { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+      input[type="text"] {
+        flex: 1 1 26rem;
+        padding: 0.65rem 0.75rem;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.9rem;
+      }
+      button {
+        padding: 0.65rem 1.15rem;
+        border: 1px solid var(--accent);
+        border-radius: 6px;
+        background: var(--accent);
+        color: #fff;
+        font-size: 0.95rem;
+        cursor: pointer;
+      }
+      button:disabled { opacity: 0.55; cursor: default; }
+      .verdict {
+        padding: 0.9rem 1.1rem;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        background: var(--panel);
+        margin-bottom: 1.25rem;
+        font-weight: 600;
+      }
+      .verdict.pass { border-color: var(--pass); color: var(--pass); }
+      .verdict.fail { border-color: var(--fail); color: var(--fail); }
+      .check {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 0.85rem 1rem;
+        margin-bottom: 0.6rem;
+        background: var(--panel);
+      }
+      .check-head { display: flex; gap: 0.6rem; align-items: baseline; }
+      .mark { font-weight: 700; }
+      .mark.pass { color: var(--pass); }
+      .mark.fail { color: var(--fail); }
+      .check p { margin: 0.35rem 0 0; color: var(--muted); font-size: 0.9rem; }
+      code, pre {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.82rem;
+      }
+      .hashes { margin-top: 0.5rem; display: grid; gap: 0.15rem; }
+      .hashes code { word-break: break-all; }
+      pre {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 0.9rem;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+      h2 { font-size: 1.05rem; margin: 2rem 0 0.6rem; }
+      table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+      th, td { text-align: left; padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--line); }
+      th { color: var(--muted); font-weight: 600; }
+      td.num { text-align: right; font-family: ui-monospace, Menlo, monospace; }
+      .note {
+        border-left: 3px solid var(--accent);
+        padding: 0.7rem 0.9rem;
+        background: var(--panel);
+        margin: 1rem 0;
+        font-size: 0.92rem;
+      }
+      .muted { color: var(--muted); }
+      details { margin-top: 0.75rem; }
+      summary { cursor: pointer; color: var(--accent); font-size: 0.92rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Verify a reserve report</h1>
+      <p class="lede">
+        Paste the hash printed on a published monthly reserve report. Every check below runs
+        <strong>in your browser</strong>, on the data this page received. Nothing here relies on
+        ReserveOS telling you the report is valid — you can read
+        <a href="/portal/verify-client.mjs">the verification code</a> your browser just ran.
+      </p>
+
+      <form id="form">
+        <input
+          id="hash"
+          type="text"
+          placeholder="64-character report hash, as printed on the report"
+          spellcheck="false"
+          autocomplete="off"
+          aria-label="Report hash"
+        />
+        <button type="submit" id="submit">Verify</button>
+      </form>
+
+      <div id="output" hidden>
+        <div id="verdict" class="verdict"></div>
+        <div id="checks"></div>
+
+        <div id="independent" class="note" hidden></div>
+
+        <h2>What was reported</h2>
+        <div id="summary"></div>
+
+        <details>
+          <summary>Show the exact bytes that were hashed</summary>
+          <pre id="canonical"></pre>
+        </details>
+      </div>
+
+      <div id="error" class="verdict fail" hidden></div>
+    </main>
+
+    <script type="module" src="/portal/app.mjs"></script>
+  </body>
+</html>
