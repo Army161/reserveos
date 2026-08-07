@@ -1,0 +1,31 @@
+# Line endings are normalized to LF in the repository and in every working
+# tree, regardless of each developer's core.autocrlf. Without this, a Windows
+# checkout rewrites all 106 files to CRLF and the next Linux or CI checkout
+# sees every line of every file as modified.
+#
+# eol=lf rather than bare text=auto: text=auto alone normalizes what is stored
+# but leaves the working copy to core.autocrlf, so the churn returns per
+# machine. Pinning both ends is what makes the tree identical everywhere.
+* text=auto eol=lf
+
+# Deliberate NUL bytes — canonical-JSON fuzz fixtures exercising RFC 8785
+# against control characters, alongside the unicode and trailing-space cases.
+# Git already classifies this as binary under text=auto and leaves it alone;
+# declaring it keeps that true if anyone later adds an explicit `*.ts text`
+# rule, which would rewrite those bytes and silently weaken the test.
+test/portal/verify-client.test.ts -text
+
+# Endings these formats actually require, irrespective of the rule above.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.sh  text eol=lf
+
+# Binary formats, should any arrive. Prevents diff noise and eol mangling.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.woff binary
+*.woff2 binary
