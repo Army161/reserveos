@@ -28,7 +28,10 @@
     "@types/ssh2-sftp-client": "^9.0.6",
     "solc": "^0.8.28",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "^3.2.7"
+  },
+  "overrides": {
+    "tmp": "^0.2.7"
   },
   "dependencies": {
     "@fastify/static": "^10.1.2",
