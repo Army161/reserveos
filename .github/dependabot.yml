@@ -1,0 +1,69 @@
+# Dependabot version updates.
+#
+# Security updates are a separate mechanism and are already enabled on the
+# repository; they fire on a published advisory regardless of this file. This
+# file adds routine version updates, which keep dependencies from drifting so
+# far that the next security bump becomes a migration.
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+
+    # Weekly and grouped rather than daily and individual. The tree is ~200
+    # packages; ungrouped daily updates would produce more pull requests than
+    # anyone reviews, and unreviewed dependency pull requests are worse than
+    # none — they look like diligence without being it.
+    open-pull-requests-limit: 5
+
+    labels:
+      - dependencies
+    commit-message:
+      prefix: deps
+      prefix-development: deps-dev
+      include: scope
+
+    groups:
+      # Minor and patch bumps travel together, one pull request per side of the
+      # prod/dev line. Keeping production separate matters here: a change to
+      # fastify, pg, ssh2-sftp-client or zod can alter what the API serves or
+      # how a custodian statement is parsed, and deserves to be read on its own
+      # rather than buried in a batch of tooling bumps.
+      production-minor-patch:
+        applies-to: version-updates
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      development-minor-patch:
+        applies-to: version-updates
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+
+      # One pull request for everything a published advisory forces, so a fix
+      # is not split across several that have to land together.
+      security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+# Majors are deliberately in no group, so each arrives as its own pull request.
+# Two in this tree carry more risk than their version numbers suggest:
+#
+#   solc  — the compiler determines EvidenceAnchor's bytecode. A major changes
+#           what gets deployed and anchored.
+#   pg    — the driver's type parsing is load-bearing. The DATE and
+#           TIMESTAMPTZ(3) handling described in the README's design rules is
+#           built on it, and a silent change there shifts maturities by a day
+#           or breaks a certified report's own hash.
+#
+# Whatever the bump, `test/determinism.test.ts` is the check that matters: it
+# recomputes a historical period and compares against a pinned hash. Treat a
+# failure there as a release blocker, never as a snapshot to update.
