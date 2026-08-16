@@ -1,0 +1,144 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# A newer push to the same branch makes an in-flight run obsolete.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test (node 22)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      # Port-mapped to 55432 to match the TEST_DATABASE_URL the harness defaults
+      # to, so the suite connects the same way it does locally. The harness
+      # applies db/migrations itself on first connect and creates the
+      # reserveos_test_login role on demand, so there is no migrate step here.
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: dev
+          POSTGRES_DB: reserveos
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d reserveos"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      TEST_DATABASE_URL: postgres://postgres:dev@localhost:55432/reserveos
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # The SSH server is started by hand rather than declared under `services`.
+      # test/ingest/sftp.test.ts reads the host key with
+      # `docker exec reserveos-sftp ssh-keygen -l -f ...`, and a service
+      # container gets a generated name that command cannot address. It would
+      # fail, readFingerprint() would return null, and all 17 SFTP tests would
+      # skip while the job stayed green — the exact failure this workflow exists
+      # to prevent. The explicit --name and -p 2222:22 match what the suite
+      # expects.
+      - name: Start SFTP server
+        run: |
+          docker run -d --name reserveos-sftp -p 2222:22 \
+            atmoz/sftp:alpine custodian:secret:::inbox
+
+      - name: Wait for SFTP and confirm the fingerprint is readable
+        run: |
+          for i in $(seq 1 60); do
+            if docker exec reserveos-sftp test -f /etc/ssh/ssh_host_ed25519_key.pub 2>/dev/null \
+               && nc -z 127.0.0.1 2222; then
+              break
+            fi
+            sleep 1
+          done
+
+          # Reproduce exactly what the suite does. Failing here names the
+          # problem, instead of letting the suite skip and report success.
+          fp=$(docker exec reserveos-sftp \
+                 ssh-keygen -l -f /etc/ssh/ssh_host_ed25519_key.pub \
+               | grep -o 'SHA256:[A-Za-z0-9+/]*')
+          if [ -z "$fp" ]; then
+            echo "::error::SFTP host key fingerprint unreadable; the SFTP suite would skip."
+            docker logs reserveos-sftp || true
+            exit 1
+          fi
+          echo "SFTP host key: $fp"
+
+      - run: npm run typecheck
+
+      # Compiles EvidenceAnchor. Cheap, and it is the only thing that exercises
+      # solc and the tmp override under it.
+      - run: npm run contracts:build
+
+      - name: Test
+        run: |
+          npx vitest run \
+            --reporter=default \
+            --reporter=json --outputFile.json=vitest-report.json
+
+      # A skipped test is the failure mode that matters here. Both service-backed
+      # suites are written to skip when their service is unreachable so that
+      # `npm test` works on a laptop without Docker — which means a broken
+      # service in CI produces a green run over 302 tests that never executed.
+      # Assert zero skipped rather than a fixed total, so adding tests does not
+      # require touching this.
+      - name: Fail if any test was skipped
+        if: always()
+        run: |
+          node -e '
+            const fs = require("fs");
+            if (!fs.existsSync("vitest-report.json")) {
+              console.error("::error::no vitest report; the run did not complete");
+              process.exit(1);
+            }
+            const r = JSON.parse(fs.readFileSync("vitest-report.json", "utf8"));
+            const skipped = (r.numPendingTests ?? 0) + (r.numTodoTests ?? 0);
+            console.log(`total=${r.numTotalTests} passed=${r.numPassedTests} failed=${r.numFailedTests} skipped=${skipped}`);
+            if (skipped > 0) {
+              console.error(`::error::${skipped} test(s) skipped — a service was unreachable, so this run proved less than it appears to.`);
+              for (const suite of r.testResults ?? []) {
+                for (const t of suite.assertionResults ?? []) {
+                  // Counted as numPendingTests, but reported per-test as
+                  // "skipped". Checking only for "pending" here lists nothing.
+                  if (t.status === "skipped" || t.status === "pending" || t.status === "todo") {
+                    console.error(`  skipped: ${suite.name} > ${t.fullName}`);
+                  }
+                }
+              }
+              process.exit(1);
+            }
+          '
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitest-report
+          path: vitest-report.json
+          if-no-files-found: ignore
+
+      - name: Stop SFTP server
+        if: always()
+        run: docker rm -f reserveos-sftp || true

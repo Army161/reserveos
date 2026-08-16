@@ -7,6 +7,7 @@ build/
 !.env.example
 .claude/settings.local.json
 coverage/
+vitest-report.json
 .DS_Store
 *.log
 .terraform/
