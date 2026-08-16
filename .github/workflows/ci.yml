@@ -5,6 +5,8 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Lets the suite be run on demand from the Actions tab without pushing.
+  workflow_dispatch:
 
 permissions:
   contents: read
