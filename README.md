@@ -9,7 +9,7 @@ Runs the monthly compliance cycle that the GENIUS Act requires of permitted paym
 
 ## Status
 
-V1 in progress. The domain core is complete and tested; the platform integration is stubbed behind an interface pending the Kaleido provisioning spike.
+V1 in progress. The domain core is complete and tested. The Kaleido client has a real implementation for anchoring and token-supply reads, grounded in FireFly/evmconnect's own source rather than Kaleido's login-gated docs; policy evaluation and supply-read block context are the two seams still pending the provisioning spike.
 
 | Area | State |
 |---|---|
@@ -31,9 +31,9 @@ V1 in progress. The domain core is complete and tested; the platform integration
 | HTTP API | Done — bearer auth, RBAC, step-up, problem+json |
 | Examiner portal | Done — browser-side verification, checked in a real browser |
 | Operator console | Done — full cycle driven through it in a real browser |
-| Kaleido platform client | Interface + fake only — real implementation blocked on credentials |
+| Kaleido platform client | Anchoring + token supply: real, integration-tested against a mock server. Policy evaluation + supply block context: pending the provisioning spike |
 
-912 tests passing. Database and SFTP tests skip automatically when their Docker services are not reachable.
+941 tests passing. Database and SFTP tests skip automatically when their Docker services are not reachable.
 
 ## Quick start
 
@@ -119,6 +119,7 @@ src/ingest/       Getting custodian and chain data in
 
 src/kaleido/      The single seam onto the Kaleido platform
   client.ts         Interface
+  rest.ts           Real implementation — see "What blocks completion" below
   fake.ts           In-memory implementation for tests
 
 src/services/     Orchestration
@@ -148,7 +149,7 @@ contracts/        EvidenceAnchor.sol — append-only commitment log
 db/migrations/    Schema, privilege grants, integrity constraints, RLS,
                   four-eyes constraint, public-policy scoping
 scripts/migrate.ts  Migration runner; refuses an edited applied migration
-test/             912 tests
+test/             941 tests
 ```
 
 ## The operator console
@@ -225,9 +226,14 @@ These are load-bearing. Breaking one is a correctness or evidentiary failure, no
 
 ## What blocks completion
 
-The Kaleido client has only a fake implementation. Writing the real one needs an account and the week-1 provisioning spike described in `build-v1.md` §4 — public Terraform documentation enumerates the `platform_*` resources but leaves most service `type` strings and `config_json` shapes as passthrough, so those must be read back from a live environment rather than guessed.
+`KaleidoRestClient` (`src/kaleido/rest.ts`) implements `submitAnchor`, `getAnchorReceipt`, and the value half of `getTokenSupply` against request/response shapes read from FireFly and evmconnect's own source — not from Kaleido's docs, which redirect to a login, and not paraphrased from memory. The file header names exactly which route each method is grounded in. `test/kaleido/rest.test.ts` exercises all of it against a real local HTTP server, and it has been proven end to end wired into the actual `EvidenceService` consumer: submit, confirm, and transaction-hash resolution through the two-hop operation→transaction lookup, plus the `AlreadyAnchored` retry path. None of this has run against a live Kaleido environment, because no credentials exist yet — the request shapes are correct by construction against FireFly's public API, not by having been fired at Kaleido itself.
 
-Outstanding before a design partner can run a real cycle: the SFTP transport adapter (the `StatementSource` interface is the only thing it needs to implement), the HTTP API, and the examiner portal.
+Two seams remain genuinely open, and are deliberately not guessed at:
+
+- **Policy evaluation.** `evaluatePolicy` calls OPA's own public data-plane API (`plan.md` describes PMS as "OPA-based"), which is the most defensible grounding available without gated docs — but Kaleido may wrap OPA behind a different convenience route. `certification.ts` only calls this after its own four-eyes, step-up and critical-breach checks already pass, so a wrong route fails a signature loudly rather than bypassing anything silently.
+- **Block context for a supply read.** `getTokenSupply`'s value read is grounded and correct, but `eth_call` — confirmed from evmconnect's own `QueryInvoke` source — returns no block number or timestamp, and neither does FireFly's contract-query abstraction on top of it. `PgSupplyFactStore` uses `blockNumber` for conflict detection and dedup, so `resolveBlockContext` is a required, separately-injected dependency with no default: it throws plainly if unconfigured rather than fabricating a value, which is exactly what this project's own design rule ("missing data is a critical breach, never a zero") requires of it.
+
+Both are week-1 provisioning-spike items per `build-v1.md` §4 — public Terraform documentation enumerates the `platform_*` resources but leaves most service `type` strings and `config_json` shapes as passthrough, so those must be read back from a live environment rather than guessed.
 
 ## What the security review found
 
