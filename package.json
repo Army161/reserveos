@@ -27,7 +27,7 @@
     "@types/pg": "^8.20.4",
     "@types/ssh2-sftp-client": "^9.0.6",
     "solc": "^0.8.28",
-    "typescript": "^5.7.2",
+    "typescript": "^7.0.2",
     "vitest": "^3.2.7"
   },
   "overrides": {
