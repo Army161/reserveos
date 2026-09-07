@@ -23,7 +23,7 @@
     "seed:demo": "tsc -p tsconfig.json && node dist/scripts/seed-demo.js"
   },
   "devDependencies": {
-    "@types/node": "^22.10.2",
+    "@types/node": "^26.4.1",
     "@types/pg": "^8.20.4",
     "@types/ssh2-sftp-client": "^9.0.6",
     "solc": "^0.8.28",
